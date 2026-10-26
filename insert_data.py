@@ -146,7 +146,9 @@ def main():
         # Opprett indekser etter innsettingen.
         db.movies.create_index([("overview", "text"), ("tagline", "text")])
         db.movies.create_index("vote_count")
-        print("Indekser for tekstsøk og vote_count er opprettet.")
+        db.ratings.create_index("userId")
+        db.ratings.create_index("tmdbId")
+        print("Indekser for tekstsøk, vote_count og ratings er opprettet.")
     finally:
         connection.close_connection()
 
