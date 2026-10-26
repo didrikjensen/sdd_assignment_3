@@ -142,6 +142,11 @@ def main():
 
         movie_ids = {movie["_id"] for movie in documents}
         insert_ratings(db, movie_ids)
+
+        # Opprett indekser etter innsettingen.
+        db.movies.create_index([("overview", "text"), ("tagline", "text")])
+        db.movies.create_index("vote_count")
+        print("Indekser for tekstsøk og vote_count er opprettet.")
     finally:
         connection.close_connection()
 
