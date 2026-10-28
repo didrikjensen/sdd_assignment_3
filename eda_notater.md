@@ -122,3 +122,7 @@ Dette er rensereglene jeg tar med inn i `load_data.py`. De bygger på EDA-en i `
 1. **De 13 duplikate `id`-ene i movies.** Jeg trenger én rad per film siden `_id` skal være TMDB-`id`. **Valg:** Jeg beholder raden med høyest `vote_count`, siden den har mest data bak seg. Da blir `popularity` også fra den raden og ikke et snitt som ikke finnes i kilden. Det avviker fra Tahirs notebook, som setter `popularity` til snittet.
 2. **`budget` og `revenue` lik 0.** Spørring 1 og 4 summerer og tar median på `revenue`. Hvis 0 teller med, blir medianen kunstig lav. **Valg:** Jeg lagrer 0 som `null`, slik som for `runtime`. I spørringene hoppes filmer uten `revenue` over, og det skrives i rapporten.
 3. **De lange `runtime`-verdiene** (for eksempel Centennial på 1 256 minutter). **Valg:** Jeg beholder dem, siden de ikke er bevist feil, og bruker median i oppgave 5 som tåler slike verdier.
+
+## Rapporttekst – oppgave 1
+
+Inntekt lik 0 beholdes i databasen, men behandles som ukjent i inntektsberegninger. Dette er en antakelse om uregistrert inntekt. Medianen beregnes fra positive inntekter; alle filmer telles fortsatt, og antall filmer med kjent inntekt oppgis separat.
