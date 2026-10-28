@@ -9,12 +9,28 @@ Start Docker Desktop. Kjør følgende fra `sdd_assignment_3`:
 ```bash
 docker compose up -d --wait
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python example.py
 ```
 
-Velg `.venv/bin/python` som Python-interpreter i VS Code.
+Velg `.venv/bin/python` (Windows: `.venv\Scripts\python.exe`) som Python-interpreter i VS Code.
+
+## Kjørerekkefølge
+
+Legg datafilene i `data/` (mappen er ikke med i repoet). Kjør deretter fra tom database:
+
+```bash
+python setup_db.py       # oppretter kolleksjonene movies og ratings med skjema
+python insert_data.py    # renser og setter inn filmer og ratings (full ratings.csv, tar en stund)
+python queries.py        # kjører alle spørringene
+python queries.py 6 7    # eller bare utvalgte oppgaver
+```
+
+`insert_data.py` avbryter hvis kolleksjonene allerede har data. Start på nytt med
+`docker compose down -v` og kjør rekkefølgen over.
+
+EDA ligger i `eda.ipynb`. Kjør den med samme `.venv` (kjernen krever `ipykernel`).
 
 Oppsettet bruker MongoDB 7.0.1, som angitt i oppgaven. `mongo-init.js`
 oppretter brukeren `sdd` med passord `sdd` og `readWrite`-tilgang til databasen
