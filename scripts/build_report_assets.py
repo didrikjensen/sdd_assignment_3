@@ -75,6 +75,7 @@ source=(ROOT/'queries.py').read_text(); tree=ast.parse(source)
 for f in [n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name.startswith('task_')]:
     n=int(f.name.split('_')[1]); raw=ast.get_source_segment(source,f)
     lines=[line for line in raw.splitlines() if line.strip()]
+    omitted = False
     def cost(ls): return sum(max(1,math.ceil(len(line)/94)) for line in ls)
     if cost(lines)>28 and n != 10:
         if n==2: marker=next(i for i,l in enumerate(lines) if '"cast_a": "$cast"' in l)
@@ -88,11 +89,13 @@ for f in [n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name.start
         selections=sorted(set(range(min(4,len(lines))))|set(range(max(4,marker-2),min(len(lines),marker+8)))|set(range(max(0,len(lines)-7),len(lines))))
         chosen=[]; previous=-1
         for i in selections:
-            if previous>=0 and i>previous+1: chosen.append('    # ... (utdrag; hele funksjonen ligger i queries.py)')
+            if previous>=0 and i>previous+1:
+                chosen.append('    # ... (utdrag; hele funksjonen ligger i queries.py)')
+                omitted = True
             chosen.append(lines[i]); previous=i
         lines=chosen
     body=highlight('\n'.join(lines),PythonLexer(),FMT)
-    asset(f'kode_{n:02d}',f'queries.py · task_{n}',body,('Hele funksjonen fra gjeldende innleveringsfil; blanklinjer er utelatt.' if n == 10 else 'Kodeutdrag fra gjeldende innleveringsfil. Utelatte linjer er markert med «...».'),'Samme funksjonsnavn og pprint-format i alle oppgavene')
+    asset(f'kode_{n:02d}',f'queries.py · task_{n}',body,('Kodeutdrag fra gjeldende innleveringsfil. Utelatte linjer er markert med «...».' if omitted else 'Hele funksjonen fra gjeldende innleveringsfil; blanklinjer er utelatt.'),'Samme funksjonsnavn og pprint-format i alle oppgavene')
 
 evidence=json.loads((ROOT/'report/results/insertion_evidence.json').read_text())
 m=evidence['example']
