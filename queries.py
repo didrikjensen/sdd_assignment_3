@@ -3,8 +3,6 @@ import time
 from pprint import pprint
 from statistics import median
 
-from tabulate import tabulate
-
 from DbConnector import DbConnector
 
 
@@ -230,8 +228,7 @@ def task_6(db):
         {"$sort": {"avg_female_share": -1}},
     ]
     rows = list(db.movies.aggregate(pipeline))
-    print(tabulate([[f"{int(r['_id'])}s", f"{r['avg_female_share']:.3f}", r["movies"]] for r in rows],
-                   headers=["Tiår", "Snitt kvinneandel", "Antall filmer"], tablefmt="github"))
+    pprint(rows, sort_dicts=False)
 
 
 def task_7(db):
@@ -245,8 +242,7 @@ def task_7(db):
                       "vote_average": 1, "vote_count": 1}},
     ]
     rows = list(db.movies.aggregate(pipeline))
-    print(tabulate([[r["title"], r.get("year"), r["vote_average"], r["vote_count"]] for r in rows],
-                   headers=["Tittel", "År", "vote_average", "vote_count"], tablefmt="github"))
+    pprint(rows, sort_dicts=False)
 
 
 def task_8(db):
@@ -281,15 +277,13 @@ def task_8(db):
         {"$limit": 20},
     ]
     rows = list(db.movies.aggregate(pipeline, allowDiskUse=True))
-    print(tabulate([[r["director"], r["actor"], r["films"], f"{r['mean_vote_average']:.3f}",
-                     "" if r["mean_revenue"] is None else f"{r['mean_revenue']:,.0f}"] for r in rows],
-                   headers=["Regissør", "Skuespiller", "Filmer", "Snitt vote_average", "Snitt revenue"],
-                   tablefmt="github"))
+    pprint(rows, sort_dicts=False)
 
 
 def task_9(db):
     """Ikke-engelske filmer med amerikansk tilknytning."""
-    # Land har ISO-kode. Selskap har bare navn, så de identifiseres på navn som starter med 'United States'.
+    # Selskap mangler landfelt. Navnefilteret under er bare en heuristikk,
+    # ikke en fullstendig identifikasjon av amerikanske selskaper.
     us = {"$or": [
         {"production_countries.iso_3166_1": "US"},
         {"production_companies.name": {"$regex": "^United States"}},
@@ -302,8 +296,7 @@ def task_9(db):
         {"$limit": 10},
     ]
     rows = list(db.movies.aggregate(pipeline))
-    print(tabulate([[r["_id"], r["count"], r["example"]] for r in rows],
-                   headers=["original_language", "Antall", "Eksempeltittel"], tablefmt="github"))
+    pprint(rows, sort_dicts=False)
 
 
 def task_10(db):
@@ -333,8 +326,7 @@ def task_10(db):
     result = next(db.ratings.aggregate(pipeline, allowDiskUse=True))
     for key, title in [("diverse", "Mest sjangerbrede brukere"), ("variance", "Høyest varians")]:
         print(f"\n{title}")
-        print(tabulate([[r["_id"], r["n"], f"{r['variance']:.4f}", r["genres"]] for r in result[key]],
-                       headers=["userId", "Antall ratings", "Varians", "Ulike sjangre"], tablefmt="github"))
+        pprint(result[key], sort_dicts=False)
 
 
 TASKS = {1: task_1, 2: task_2, 3: task_3, 4: task_4, 5: task_5,

@@ -44,3 +44,16 @@ Init-scriptet kjøres bare første gang med et tomt volum.
 
 - [@didrikjensen](https://github.com/didrikjensen)
 - [@tahir1611](https://github.com/tahir1611)
+
+## Rapport og kontroll av tekstsøk
+
+Rapportkilden og figurene ligger i `report/`. Fullstendige spørringsresultater ligger i
+`report/results/`, inkludert alle par fra oppgave 2 og alle grupper fra oppgave 5.
+Rapportfigurene viser lesbare tabeller fra disse resultatene. Alle spørringer skriver
+ut med `pprint`; funksjonsnavnene er `task_1` til `task_10`.
+
+Kjør `python scripts/verify_noir.py` for å sammenligne delstrengsøk og ordgrensesøk
+i råfilen. Kontrollen skriver `report/noir_verification.json`.
+
+Figurene kan regenereres med `python scripts/render_report_figures.py`.
+Kompiler `report/main.tex` i Overleaf eller med en lokal LaTeX-installasjon.

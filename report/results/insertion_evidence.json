@@ -1,0 +1,26 @@
+{
+  "movies": 45433,
+  "ratings": 26024289,
+  "example": {
+    "_id": 862,
+    "title": "Toy Story",
+    "release_date": "1995-10-30 00:00:00",
+    "revenue": 373554033,
+    "genres": [
+      {
+        "id": 16,
+        "name": "Animation"
+      },
+      {
+        "id": 35,
+        "name": "Comedy"
+      },
+      {
+        "id": 10751,
+        "name": "Family"
+      }
+    ],
+    "cast_count": 13,
+    "crew_count": 106
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "substring_matches": 82,
+  "substring_with_50_votes": 7,
+  "word_matches": 56,
+  "word_with_50_votes": 5,
+  "qualifying_word_matches": [
+    {
+      "id": "31589",
+      "title": "The Bad Sleep Well",
+      "release_date": "1960-09-15",
+      "vote_average": 7.7,
+      "vote_count": 57.0
+    },
+    {
+      "id": "25858",
+      "title": "Drunken Angel",
+      "release_date": "1948-04-27",
+      "vote_average": 7.7,
+      "vote_count": 54.0
+    },
+    {
+      "id": "1093",
+      "title": "Elevator to the Gallows",
+      "release_date": "1958-01-29",
+      "vote_average": 7.6,
+      "vote_count": 85.0
+    },
+    {
+      "id": "347945",
+      "title": "Synchronicity",
+      "release_date": "2015-07-22",
+      "vote_average": 5.7,
+      "vote_count": 114.0
+    },
+    {
+      "id": "316021",
+      "title": "Frank & Lola",
+      "release_date": "2016-12-09",
+      "vote_average": 5.7,
+      "vote_count": 51.0
+    }
+  ],
+  "substring_only_with_50_votes": [
+    {
+      "id": "776",
+      "title": "The Rules of the Game",
+      "release_date": "1939-06-08",
+      "vote_average": 7.7,
+      "vote_count": 109.0
+    },
+    {
+      "id": "254578",
+      "title": "Phoenix",
+      "release_date": "2014-09-25",
+      "vote_average": 6.4,
+      "vote_count": 147.0
+    }
+  ],
+  "example_title_check": [
+    {
+      "title": "Pulp Fiction",
+      "contains_noir": false
+    },
+    {
+      "title": "Blade Runner",
+      "contains_noir": false
+    },
+    {
+      "title": "Chinatown",
+      "contains_noir": false
+    },
+    {
+      "title": "L.A. Confidential",
+      "contains_noir": false
+    },
+    {
+      "title": "Sin City",
+      "contains_noir": false
+    },
+    {
+      "title": "Drive",
+      "contains_noir": false
+    },
+    {
+      "title": "Drive",
+      "contains_noir": false
+    }
+  ]
+}

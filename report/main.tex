@@ -1,0 +1,393 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Pakker ---------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[norsk]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{array}
+\setlength{\emergencystretch}{1em}
+\usepackage[font=small, labelfont=bf]{caption}
+\usepackage{enumitem}
+\usepackage{csquotes}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage[parfill]{parskip}
+\usepackage[hidelinks]{hyperref}
+
+% --- Utseende -------------------------------------------------------------
+\definecolor{aksent}{RGB}{0, 80, 158}   % NTNU-blå
+
+\titleformat{\section}
+  {\Large\bfseries\color{aksent}}
+  {\thesection}{0.8em}{}
+\titlespacing*{\section}{0pt}{1.6em}{0.6em}
+
+\setlist[itemize]{itemsep=1pt, parsep=0pt, topsep=2pt, leftmargin=1.5em}
+\urlstyle{same}
+
+\addto\captionsnorsk{%
+  \renewcommand{\contentsname}{Innholdsfortegnelse}%
+  \renewcommand{\listfigurename}{Figurliste}%
+}
+
+% --- Figurer -------------------------------------------------------------
+\newcommand{\skjermbilde}[3]{%
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth,height=0.52\textheight,keepaspectratio]{#1}
+\caption{#2}\label{#3}
+\end{figure}
+}
+
+\newcommand{\kodebilde}[3]{%
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth,height=0.80\textheight,keepaspectratio]{#1}
+\caption{#2}\label{#3}
+\end{figure}
+}
+
+% --- Dokument -------------------------------------------------------------
+\begin{document}
+
+% --- Forside ---------------------------------------------------------------
+\begin{titlepage}
+  \centering
+  \vspace*{3cm}
+  {\large NTNU \par}
+  \vspace{0.4em}
+  {\large TDT4225 -- Very Large, Distributed Data Volumes \par}
+  \vspace{2.5cm}
+  {\color{aksent}\rule{\linewidth}{0.8pt}}
+  \vspace{1em}
+  {\Huge\bfseries Oppgave 3 \par}
+  \vspace{0.6em}
+  {\Large Utforskende dataanalyse og spørringer i MongoDB \par}
+  \vspace{1em}
+  {\color{aksent}\rule{\linewidth}{0.8pt}}
+  \vspace{2.5cm}
+  {\large Gruppe 78 \par}
+  \vspace{0.8em}
+  {\large Didrik Røssum Jensen \par}
+  {\large Muhammed Tahir Adil \par}
+  \vfill
+  {\color{gray} Oktober 2026 \par}
+\end{titlepage}
+
+% --- Innholdsfortegnelse --------------------------------------------------
+\tableofcontents
+\newpage
+
+% ==========================================================================
+\section{Innledning}
+Oppgaven går ut på å utforske, rense og behandle \enquote{The Movies Dataset} fra Kaggle (Banik, u.å.). Datasettet inneholder informasjon om over 45 000 filmer, inkludert metadata, skuespillere, filmcrew og nøkkelord, samt rundt 26 millioner brukervurderinger. Etter databehandlingen opprettes kolleksjoner i MongoDB, og dataene settes inn før spørringer utføres for å besvare spørsmålene i oppgaven.
+
+Gruppen består av Tahir og Didrik, som har samarbeidet om å løse oppgaven. Arbeidet er fordelt mellom gruppemedlemmene med ulike ansvarsområder innen datautforskning og databehandling. Samarbeidet om koden foregår gjennom versjonskontroll med Git og GitHub. Repositoriet finnes på \href{https://github.com/didrikjensen/sdd_assignment_3}{GitHub}.
+
+Målet er å organisere strukturerte og delvis strukturerte filmdata i en dokumentdatabase, slik at spørsmål om blant annet regissører, skuespillere, sjangre, inntekter og brukervurderinger kan besvares med MongoDB-spørringer. Metadata, cast, crew og keywords samles i filmdokumenter, mens brukervurderinger lagres i en egen kolleksjon med referanser til filmene.
+
+Verktøyene som benyttes, er:
+\begin{itemize}
+  \item Pandas til databehandling og utforskning.
+  \item Matplotlib til visualisering.
+  \item PyMongo til kommunikasjon mellom Python og MongoDB.
+  \item Jupyter til EDA.
+  \item Docker til lokal kjøring av MongoDB (versjon 7.0.1).
+  \item Git og GitHub til versjonskontroll og samarbeid.
+\end{itemize}
+
+\section{Resultater}
+
+\subsection{Del 1: EDA og klargjøring av data}
+\FloatBarrier
+\subsubsection{Datasett og datakvalitet}
+\begin{sloppypar}
+Vi bruker fem filer fra datasettet: \texttt{movies\_metadata.csv} (45\,466 rader, 24 kolonner), \texttt{credits.csv} (cast og crew per film), \texttt{keywords.csv}, \texttt{links.csv} (45\,843 rader) og \texttt{ratings.csv} (26\,024\,289 ratings fra 270\,896 brukere). Filene kobles på to typer ID-er: \texttt{movies\_metadata}, \texttt{credits} og \texttt{keywords} bruker TMDB-ID, mens \texttt{ratings} bruker MovieLens-ID. \texttt{links.csv} oversetter mellom de to. De mindre filene (\texttt{ratings\_small} og \texttt{links\_small}) brukes bare til testing, siden \texttt{ratings\_small} ikke er et utsnitt av \texttt{ratings} (bare 6\,\% av bruker--film-parene går igjen).
+\end{sloppypar}
+
+Nestede felt som \texttt{genres}, \texttt{cast} og \texttt{crew} er lagret som tekst i CSV-filene. Teksten er Python-repr og ikke JSON, så den må leses med \texttt{ast.literal\_eval}. \texttt{budget}, \texttt{id} og \texttt{popularity} er lest inn som tekst fordi tre rader er ødelagt.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|>{\raggedright\arraybackslash}p{3.3cm}|>{\raggedright\arraybackslash}p{7.7cm}|>{\raggedright\arraybackslash}p{3.2cm}|}
+\hline
+\textbf{Fil} & \textbf{Innhold (feltene vi bruker)} & \textbf{Nøkkel} \\ \hline
+\texttt{movies\_metadata} & tittel, \texttt{release\_date}, \texttt{runtime}, \texttt{budget}, \texttt{revenue}, \texttt{vote\_average}, \texttt{vote\_count}, \texttt{original\_language}, \texttt{overview}, \texttt{tagline}, \texttt{genres}, \texttt{production\_companies}, \texttt{production\_countries}, \texttt{belongs\_to\_collection} & \texttt{id} (TMDB) \\ \hline
+\texttt{credits} & \texttt{cast} (navn, \texttt{order}, \texttt{gender}) og \texttt{crew} (navn, \texttt{job}, \texttt{department}) & \texttt{id} (TMDB) \\ \hline
+\texttt{keywords} & \texttt{keywords} (id og navn) & \texttt{id} (TMDB) \\ \hline
+\texttt{links} & \texttt{movieId}, \texttt{imdbId}, \texttt{tmdbId} & \texttt{movieId} \\ \hline
+\texttt{ratings} & \texttt{userId}, \texttt{movieId}, \texttt{rating} (0,5--5), \texttt{timestamp} & \texttt{(userId, movieId)} \\ \hline
+\end{tabular}
+\caption{Filene i datasettet, feltene som brukes i oppgavene og kolonnene filene kobles på.}\label{tab:filer}
+\end{table}
+
+Hovedfunn om datakvaliteten:
+\begin{itemize}
+  \item \textbf{Ødelagte rader.} Tre filmer er splittet over to CSV-rader hver (6 rader med 10 og 15 felt i stedet for 24), fordi \texttt{overview} inneholder linjeskift. Det gir tre rader med ugyldig \texttt{id}.
+  \item \textbf{Duplikater.} I \texttt{movies\_metadata} er 17 rader helt like, og 13 \texttt{id}-er har to rader med ulik \texttt{popularity}. I \texttt{credits} finnes 37 helt like rader og 7 ekstra \texttt{id}-forekomster. I \texttt{keywords} er 987 rader helt like.
+  \item \textbf{Skjulte manglende verdier.} \texttt{budget} er 0 i 36\,557 rader (ca.\ 80\,\%), \texttt{revenue} er 0 i 38\,041 (ca.\ 84\,\%), og \texttt{runtime} er 0 i 1\,558. Vi behandler 0 som \enquote{ukjent} i disse feltene; datasettet alene bekrefter ikke at samtlige nuller er uregistrerte verdier. I \texttt{credits} har 223\,765 cast-oppføringer \texttt{gender} 0 (ukjent kjønn).
+  \item \textbf{Ekte manglende verdier.} \texttt{release\_date} mangler for 84 filmer, \texttt{original\_language} for 11 og \texttt{status} for 81. 946 filmer mangler både \texttt{overview} og \texttt{tagline}, 2\,414 har tom cast og 887 mangler regissør.
+  \item \textbf{Koblingen mellom ID-ene.} \texttt{tmdbId} mangler for 219 av 45\,843 rader i \texttt{links}, og 161 \texttt{tmdbId} finnes ikke i \texttt{movies\_metadata}. 29 \texttt{tmdbId} deles av flere \texttt{movieId} (maks 3). Likevel kan 99,84\,\% av ratingene kobles til en film.
+  \item \textbf{Skjeve fordelinger.} Gjennomsnittsbudsjettet (for filmer med budsjett over 0) er ca.\ 21,6 mill.\ mot en median på 8 mill., og median \texttt{vote\_count} er bare 10. Derfor er median et bedre mål enn gjennomsnitt i oppgavene, og \texttt{vote\_average} er upålitelig for filmer med få stemmer.
+\end{itemize}
+Vi imputerte ikke manglende beløp. Når rundt 80\,\% av budsjettene og 84\,\% av inntektene er 0, ville innfylling med et standardbeløp tilført antatte verdier til analysene. Vi beholder filmene, men lar bare registrerte positive inntekter inngå i inntektsmedianer og oppgir datagrunnlaget separat.
+\skjermbilde{eda_tabell_manglende.png}{Antall og andel manglende (NaN) verdier per kolonne i \texttt{movies\_metadata}, etter at de tre ødelagte radene er reparert.}{fig:eda-tabell}
+Figur~\ref{fig:eda-manglende} viser omfanget av manglende og ukjente verdier i \texttt{movies\_metadata}. Mangelen på \texttt{budget} og \texttt{revenue} er ikke bare et problem for gamle filmer. Figur~\ref{fig:eda-tiar} viser at andelen ukjente verdier er rundt 90--97\,\% frem til 1970-tallet og faller til 74--82\,\% fra 1980-tallet, men den er fortsatt høy i alle tiår.
+\skjermbilde{eda_manglende_per_kolonne.png}{Andel manglende (NaN) og ukjente (0) verdier per kolonne i \texttt{movies\_metadata}.}{fig:eda-manglende}
+\skjermbilde{eda_null_per_tiar.png}{Andel av \texttt{budget}, \texttt{revenue} og \texttt{runtime} som er 0, per tiår (bare tiår med minst 100 filmer), med antall filmer per tiår under.}{fig:eda-tiar}
+
+Figur~\ref{fig:eda-log} viser fordelingen av \texttt{budget}, \texttt{revenue} og \texttt{vote\_count} på logaritmisk akse. Alle tre er sterkt høyreskjeve, og snittet ligger langt over medianen. Det begrunner at oppgavene bruker median. Figuren viser også en hale med budsjetter under 1\,000 USD. Datasettet gir ikke grunnlag for å avgjøre om disse skyldes lave budsjetter, feil enhet eller andre registreringsfeil. Medianen av \texttt{vote\_count} er 11 her fordi figuren bare teller filmer med minst én stemme (10 når alle filmer teller med).
+\skjermbilde{eda_fordelinger_log.png}{Fordeling av \texttt{budget}, \texttt{revenue} og \texttt{vote\_count} (verdier over 0, logaritmisk x-akse). Rød stiplet linje er snitt og grønn linje er median.}{fig:eda-log}
+
+Antall ratings er også svært skjevt fordelt (figur~\ref{fig:eda-ratings}): median 30 ratings per bruker mot et snitt på 96, og median 8 per film mot et snitt på 577. Noen få brukere og filmer står for svært mange ratings, noe som er grunnen til at ratings ligger i en egen samling og at oppgave 10 må lese alle 26 millioner dokumentene.
+\skjermbilde{eda_ratings_per_bruker_film.png}{Antall ratings per bruker og per film i \texttt{ratings.csv} (logaritmiske akser).}{fig:eda-ratings}
+\FloatBarrier
+\subsubsection{Datavask}
+Råfilene endres aldri. All rensing skjer i Python i \texttt{insert\_data.py} før innsetting. Etter rensing står vi igjen med 45\,433 filmer (fra 45\,466 rader) og 26\,024\,289 ratings (ingen er fjernet).
+
+\paragraph{movies\_metadata.}
+\begin{itemize}
+  \item De tre splittede filmene settes sammen igjen (fortsettelsen av \texttt{overview} legges til teksten, og de siste feltene flyttes til riktige kolonner). Det gir 45\,463 rader.
+  \item \texttt{id}, \texttt{budget} og \texttt{popularity} gjøres om til tall og \texttt{release\_date} til \texttt{datetime}. Ugyldige verdier gir feilmelding i stedet for å bli \texttt{NaN} i det stille.
+  \item De 17 helt like radene fjernes. For de 13 \texttt{id}-ene med to ulike rader beholdes raden med høyest \texttt{vote\_count}, og \texttt{popularity} settes til snittet av de to. Det gir én rad per \texttt{id} (45\,433 filmer), som trengs fordi \texttt{id} blir \texttt{\_id}.
+  \item De nestede liste- og objektfeltene parses med \texttt{ast.literal\_eval}. \texttt{belongs\_to\_collection} lagres som \texttt{null} når en samling mangler.
+  \item Manglende verdier imputeres ikke. Manglende \texttt{release\_date}, \texttt{original\_language} og \texttt{status} lagres som \texttt{null}. Verdiene 0 i \texttt{budget}, \texttt{revenue} og \texttt{runtime} lagres uendret, og spørringene må selv hoppe over dem.
+  \item Lange \texttt{runtime}-verdier (for eksempel 1\,256 minutter) beholdes, siden de ikke er bevist feil. Vi bruker median, som tåler slike verdier.
+\end{itemize}
+
+\paragraph{credits og keywords.}
+\begin{itemize}
+  \item Helt like rader fjernes. De 7 gjenværende \texttt{id}-parene i \texttt{credits} har samme innhold i ulik rekkefølge, så vi beholder første rad per \texttt{id}.
+  \item \texttt{cast}, \texttt{crew} og \texttt{keywords} parses med \texttt{ast.literal\_eval} og slås sammen med filmene på \texttt{id} (en-til-en). Filmer uten treff får tom liste.
+  \item 4 keyword-oppføringer som bare har mellomrom som navn (id 13\,091) fjernes.
+\end{itemize}
+
+\paragraph{links og ratings.}
+\begin{itemize}
+  \item \texttt{links} leses inn og \texttt{tmdbId} (som er \texttt{float}) gjøres om til heltall. En referanse settes bare hvis filmen finnes i \texttt{movies}, ellers \texttt{null}.
+  \item Ratings uten treff beholdes (42\,707 stk.), med \texttt{tmdbId = null}. Antall ratings og varians per bruker er fortsatt gyldige, og bare sjangertellingen i oppgave 10 trenger koblingen.
+  \item De 29 \texttt{tmdbId}-ene som deles av flere \texttt{movieId} påvirker 9\,453 ratings (0,036\,\%). Vi gjør ikke noe med dem. Ratingene peker på samme film, og \texttt{movieId} ligger på hver rating slik at de kan skilles.
+  \item \texttt{timestamp} (Unix-tid) gjøres om til \texttt{datetime}. Ratings har ingen manglende verdier, duplikater eller verdier utenfor 0,5 til 5, så ingenting fjernes.
+\end{itemize}
+
+\FloatBarrier
+\subsubsection{Databasemodell og innsetting}
+Vi bruker to kolleksjoner.
+
+\paragraph{movies} (45\,433 dokumenter) har ett dokument per film med TMDB-\texttt{id} som \texttt{\_id}. Listefeltene (\texttt{genres}, \texttt{production\_companies}, \texttt{production\_countries}, \texttt{spoken\_languages}), samlingen (\texttt{belongs\_to\_collection}), \texttt{keywords}, \texttt{cast} og \texttt{crew} er bygget inn i filmdokumentet (embedding).
+
+Begrunnelse: fem av de ni første spørringene (1, 2, 3, 6 og 8) bruker filmfelt og cast eller crew samtidig, og cast og crew leses alltid sammen med filmen og endres aldri alene. Med egne kolleksjoner hadde nesten hver spørring trengt \texttt{\$lookup}. Dokumentene er også små nok: den lengste cast-listen har 313 personer og den lengste crew-listen 435, og den største credits-raden er rundt 79\,kB som tekst, under 1\,\% av MongoDBs grense på 16\,MB.
+
+\paragraph{ratings} (26\,024\,289 dokumenter) har ett dokument per rating med referanse til filmen.
+
+Begrunnelse: antall ratings per film er ubegrenset (opptil 91\,921 for én film), så en innebygd liste ville vokst for hver ny rating og fulgt med hver gang filmen leses, også når ratingene ikke trengs. Oppgave 10 grupperer dessuten per bruker, så alle ratings måtte uansett pakkes ut av filmdokumentene. MovieLens-ID oversettes til TMDB-ID ved innsetting og ikke i spørringene, slik at \texttt{tmdbId} peker rett på \texttt{movies.\_id}. Ellers hadde oppgave 10 trengt en ekstra join over 26 millioner rader. \texttt{links} er derfor ikke en egen kolleksjon, men brukes bare under innsettingen.
+
+\begin{verbatim}
+movies:  { _id, title, release_date, budget, revenue, runtime,
+           vote_average, vote_count, original_language, overview, tagline,
+           genres: [{id, name}], production_countries: [{iso_3166_1, name}],
+           belongs_to_collection: {id, name, ...} | null,
+           keywords: [...], cast: [{id, name, order, gender, ...}],
+           crew: [{id, name, job, department, ...}] }
+ratings: { userId, movieId, tmdbId | null, rating, timestamp }
+\end{verbatim}
+
+\paragraph{Innsetting og indekser.} Filmene settes inn med \texttt{insert\_many} i biter på 1\,000. Ratings leses i biter på 10\,000 med \texttt{pandas}, får \texttt{tmdbId} lagt på via \texttt{links}, og settes inn med \texttt{insert\_many}. Innsettingskoden er satt opp til å opprette følgende indekser etter innsetting: en tekstindeks over \texttt{overview} og \texttt{tagline} (oppgave 7), en indeks på \texttt{movies.vote\_count} og enkeltindekser på \texttt{ratings.userId} og \texttt{ratings.tmdbId}. Etter innsetting kontrollerte vi antallet: 45\,433 filmer og 26\,024\,289 ratings, som er alle ratings i den fulle \texttt{ratings.csv}.
+\skjermbilde{innsetting_kontroll.jpg}{Kontroll av dokumentantall og et utdrag av filmdokumentet for Toy Story. Ratings-antallet leses med \texttt{estimated\_document\_count}; det samsvarer med antall rader i den fulle ratings-filen.}{fig:innsetting}
+
+\subsection{Del 2: Spørringer}
+% For hver oppgave: kort metode, faktisk resultat og skjermbilde.
+% Forklar relevante valg for manglende verdier og avgrensninger.
+Alle funksjonene heter \texttt{task\_1} til \texttt{task\_10} og bruker \texttt{pprint} til utskrift, slik oppgaveteksten ber om. Resultatfigurene nedenfor viser tabeller laget fra de samme spørringsresultatene for å gjøre dem lettere å lese. Beløp og gjennomsnitt avrundes bare i figurene; beregningene bruker de opprinnelige verdiene.
+
+\FloatBarrier
+\subsubsection{Oppgave 1: Regissører med høyest medianinntekt}
+\paragraph{Metode og resultat}
+Spørringen er en aggregasjon på \texttt{movies}. Vi bruker \texttt{\$unwind} på \texttt{crew}, beholder \texttt{crew.job = Director} og grupperer først på (regissør-ID, film), slik at en regissør som er oppført flere ganger i samme film bare teller én gang. Deretter grupperer vi på regissør-ID og samler antall filmer, gjennomsnittet av \texttt{vote\_average} og listen med \texttt{revenue}. Regissører med under 5 filmer fjernes. MongoDB 7.0.1 tilbyr \texttt{\$median} med tilnærmet beregning. Vi bruker \texttt{statistics.median} i Python for å beregne eksakt median (MongoDB, u.å.-a).
+
+\texttt{revenue = 0} behandles som ukjent og er utelatt fra medianen. Antall filmer og snittet av \texttt{vote\_average} er regnet over alle regissørens filmer, mens medianen bare bygger på filmene med kjent inntekt (\texttt{revenue\_count}). Regissører uten noen kjent inntekt kan ikke rangeres og er utelatt.
+
+Kyle Balda står øverst med median 1,02 mrd.\ USD, etterfulgt av David Yates (936 mill.) og Peter Jackson (871 mill.). Listen domineres av regissører bak store franchiser og animasjonsfilmer (\emph{Minions}, \emph{Harry Potter}, \emph{Ringenes herre}, \emph{Avengers}, \emph{Star Wars}, \emph{Ice Age}). Flere medianer bygger på få filmer: Balda har kjent inntekt for 3 av 5 filmer, og Mike Thurmeier og Raman Hui for bare 2 av henholdsvis 6 og 5. Rangeringen er derfor følsom for enkeltfilmer.
+\skjermbilde{kode_01.jpg}{Kodeutdrag for oppgave 1; hele funksjonen ligger i \texttt{queries.py}.}{fig:q1a}
+\skjermbilde{resultat_01.jpg}{Resultat fra oppgave 1: topp 10 regissører etter median \texttt{revenue}.}{fig:q1b}
+
+\FloatBarrier
+\subsubsection{Oppgave 2: Skuespillerpar}
+\paragraph{Metode og resultat}
+Vi grupperer først på (film, skuespiller-ID), slik at en skuespiller med flere roller i samme film bare teller én gang, og samler deretter castet per film. Hver film får to kopier av castlisten (\texttt{cast\_a} og \texttt{cast\_b}), begge pakkes ut med \texttt{\$unwind}, og vi beholder bare par med \texttt{cast\_a.id < cast\_b.id}. Det fjerner par med seg selv og sørger for at (A, B) og (B, A) ikke telles hver for seg. Parene identifiseres med person-ID og ikke navn. Til slutt grupperer vi på paret, teller filmer og tar snittet av \texttt{vote\_average}, beholder par med minst 3 felles filmer og sorterer synkende på antall filmer. Spørringen bruker \texttt{allowDiskUse}, fordi alle par per film blir mange (castlisten kan ha over 300 personer), og tok ca.\ 134 sekunder.
+
+Det gir 45\,650 par. 30\,620 av dem har akkurat 3 felles filmer, og antallet faller raskt oppover. Flest felles filmer har Huntz Hall og Leo Gorcey (35 filmer, snitt 3,63), foran Charlie Chaplin og Edna Purviance (33) og Stan Laurel og Oliver Hardy (31). Toppen består av faste komikerduoer fra eldre filmer, men også stemmeskuespillere som Frank Welker, Jeff Bennett og Jim Cummings, som går igjen i animasjonsserier. Snittet for parene fra \emph{Bowery Boys}-filmene er lavt (under 4,5), mens Laurel og Hardy og Chaplin ligger rundt 6,4--6,5.
+\skjermbilde{kode_02.jpg}{Kodeutdrag for oppgave 2; hele funksjonen ligger i \texttt{queries.py}.}{fig:q2a}
+\skjermbilde{resultat_02.jpg}{Resultat fra oppgave 2: de første 15 av totalt 45\,650 skuespillerpar, sortert etter antall felles filmer.}{fig:q2b}
+
+\FloatBarrier
+\subsubsection{Oppgave 3: Skuespillere med størst sjangerbredde}
+\paragraph{Metode og resultat}
+Vi pakker ut \texttt{cast} og grupperer på skuespiller-ID. Per skuespiller samler vi settet av filmer (\texttt{\$addToSet}, som gir antall krediterte filmer) og settet av sjangerlister. Skuespillere med under 10 filmer fjernes. I Python slås sjangerlistene sammen til ett sett, slik at sjangre som går igjen i flere filmer bare telles én gang. Antall unike sjangre og de fem første sjangrene i alfabetisk rekkefølge tas med som eksempel.
+
+Datasettet har 20 sjangre, og mange skuespillere med minst 10 filmer har alle 20. Topp 10 er derfor en delt førsteplass, og vi har brukt skuespiller-ID som tie-break. Listen viser dermed ti av mange skuespillere med full sjangerbredde og ikke en egentlig rangering: Christopher Lee (148 filmer), Jim Broadbent (78), Michael Madsen (65), Billy Zane (64), Bill Nighy (61), David Carradine og Beau Bridges (60 hver), Stacy Keach (59), Jonathan Pryce (55) og Eddie Izzard (43). Eksempelsjangrene er like for alle ti (\emph{Action, Adventure, Animation, Comedy, Crime}), fordi de er sortert alfabetisk. Filmer uten registrerte sjangre teller med i antall krediterte filmer, men bidrar ikke med nye sjangre. Antall filmer kunne vært en alternativ tie-breaker og ville fremhevet de mest produktive skuespillerne blant dem med lik sjangerbredde; ID brukes her for en entydig rekkefølge uten et ekstra rangeringskriterium.
+\skjermbilde{kode_03.jpg}{Kodeutdrag for oppgave 3; hele funksjonen ligger i \texttt{queries.py}.}{fig:q3a}
+\skjermbilde{resultat_03.jpg}{Resultat fra oppgave 3: skuespillere med flest unike sjangre.}{fig:q3b}
+
+\FloatBarrier
+\subsubsection{Oppgave 4: Filmsamlinger med størst samlet inntekt}
+\paragraph{Metode og resultat}
+Vi velger filmer der \texttt{belongs\_to\_collection.name} er en streng (ikke \texttt{null}) og grupperer på samlingens ID. Per samling beregnes antall filmer, summen av \texttt{revenue}, antall filmer med kjent inntekt, tidligste og seneste \texttt{release\_date} og listen med \texttt{vote\_average}. Samlinger med under 3 filmer fjernes. Medianen av \texttt{vote\_average} beregnes i Python, og datoene formateres som \texttt{ÅÅÅÅ-MM-DD}.
+
+\texttt{revenue = 0} øker ikke summen. Totalen er derfor summen av registrerte inntekter og kan undervurdere samlingen dersom filmer mangler inntektsopplysninger. Samlinger uten noen kjent inntekt er utelatt. Blant de 10 beste har alle kjent inntekt for alle filmene unntatt \emph{Despicable Me} (4 av 6).
+
+Harry Potter ligger øverst med 7,71 mrd.\ USD fra 8 filmer (2001--2011, median 7,5), tett fulgt av Star Wars (7,43 mrd., 8 filmer) og James Bond (7,11 mrd.). Bond har klart flest filmer (26), så den har lavest inntekt per film av de tre. De øvrige er \emph{Fast and the Furious} (5,13 mrd.), \emph{Pirates of the Caribbean} (4,52), \emph{Transformers} (4,37), \emph{Despicable Me} (3,69), \emph{Twilight} (3,34), \emph{Ice Age} (3,22) og \emph{Jurassic Park} (3,03). Inntektene er ikke justert for inflasjon, så nyere samlinger favoriseres.
+\skjermbilde{kode_04.jpg}{Kodeutdrag for oppgave 4; hele funksjonen ligger i \texttt{queries.py}.}{fig:q4a}
+\skjermbilde{resultat_04.jpg}{Resultat fra oppgave 4: topp 10 samlinger etter total \texttt{revenue}.}{fig:q4b}
+
+\FloatBarrier
+\subsubsection{Oppgave 5: Spilletid per tiår og primærsjanger}
+\paragraph{Metode og resultat}
+Vi velger filmer med gyldig \texttt{release\_date} og minst én sjanger. Tiåret regnes ut fra utgivelsesåret (år minus år modulo 10), og primærsjangeren er første element i \texttt{genres}. Vi grupperer på (tiår, primærsjanger), teller filmer og samler \texttt{runtime}. Medianen beregnes i Python, og resultatet sorteres på tiår og deretter synkende median.
+
+\texttt{runtime = 0} og manglende \texttt{runtime} behandles som ukjent og er utelatt fra medianen, men filmene teller fortsatt i \texttt{movie\_count}. Av 42\,965 filmer i resultatet er 1\,271 uten kjent spilletid. Én gruppe (2020-tallet, Action) har bare én film uten spilletid, og vises derfor med median \texttt{null}.
+
+Det gir 232 grupper. Medianen er 1--1,5 minutter for filmene fra 1870- og 1880-tallet og for de fleste på 1890-tallet (tidlige kortfilmer), og stiger til 60--120 minutter fra 1900-tallet. Fra 1950-tallet ligger de lengste gruppene med mange filmer på 110--120 minutter, typisk War og History (1980-tallet: War, 120 minutter, 32 filmer). På 2010-tallet er medianen for Drama og Action 100 minutter, Comedy 93 og Animation 80. De høyeste verdiene i tidlige tiår bygger ofte på én film (1940-tallet: Science Fiction med 220 minutter), så grupper med få filmer må tolkes med forsiktighet.
+\skjermbilde{kode_05.jpg}{Kodeutdrag for oppgave 5; hele funksjonen ligger i \texttt{queries.py}.}{fig:q5a}
+\skjermbilde{resultat_05.jpg}{Resultat fra oppgave 5: de første 15 av totalt 232 grupper, sortert etter tiår og deretter synkende median spilletid.}{fig:q5b}
+
+\FloatBarrier
+\subsubsection{Oppgave 6: Kvinneandel blant de fem øverst krediterte}
+\paragraph{Metode og resultat}
+Spørringen er én aggregasjon på \texttt{movies}. Cast sorteres på \texttt{order} med \texttt{\$sortArray}, og de fem første velges med \texttt{\$slice}. Vi sorterer i stedet for å filtrere på \texttt{order < 5}, fordi \texttt{order} ikke alltid starter på 0 (rundt 6\,000 filmer har første \texttt{order} større enn 0). Kvinneandelen er antall med \texttt{gender = 1} delt på antall med \texttt{gender} 1 eller 2. Ukjent kjønn (\texttt{gender = 0}) er altså utelatt fra både teller og nevner. Filmer der ingen av de fem har kjent kjønn, og filmer uten cast eller utgivelsesdato, er utelatt. Etter det gjenstår 39\,680 filmer. Andelen per film midles per tiår.
+
+De fleste tiår ligger mellom 0,31 og 0,38. Andelen var lavest på 1970-tallet (0,311) og har steget til 0,376 på 2010-tallet, men den er fortsatt godt under 50\,\%. De høyeste verdiene (1870-tallet med 1,0 og 2020-tallet med 0,8) bygger på én film hver og sier lite. Det samme gjelder 1890- og 1900-tallet (2 og 12 filmer).
+\skjermbilde{kode_06.jpg}{Kodeutdrag for oppgave 6; hele funksjonen ligger i \texttt{queries.py}.}{fig:q6a}
+\skjermbilde{resultat_06.jpg}{Resultat fra oppgave 6: gjennomsnittlig kvinneandel per tiår.}{fig:q6b}
+
+\FloatBarrier
+\subsubsection{Oppgave 7: Tekstsøk etter noir og neo-noir}
+\paragraph{Metode og resultat}
+Vi bruker en tekstindeks over \texttt{overview} og \texttt{tagline}, opprettet etter innsetting, og søker med \texttt{\$text} med søkestrengen \texttt{noir}. Indeksen deler \texttt{neo-noir} i tokenene \texttt{neo} og \texttt{noir}, så ett søk på \texttt{noir} fanger både \enquote{noir} og \enquote{neo-noir}. Vi prøvde først \texttt{noir "neo-noir"}, men et fraseuttrykk i anførselstegn må også matche, og det ga bare 5 treff uten vote\_count-filteret. Resultatet filtreres på \texttt{vote\_count >= 50}, sorteres på \texttt{vote\_average} (synkende) og begrenses til 20.
+
+Tekstsøket gir 60 filmer, men bare 5 har minst 50 stemmer, så resultatet har 5 rader. De er \emph{The Bad Sleep Well} (1960, 7,7), \emph{Drunken Angel} (1948, 7,7), \emph{Elevator to the Gallows} (1958, 7,6), \emph{Synchronicity} (2015, 5,7) og \emph{Frank \& Lola} (2016, 5,7). Filmer uten \texttt{overview} og \texttt{tagline} gir ikke treff.
+Som uavhengig kontroll søkte vi i råfilens \texttt{overview} og \texttt{tagline} med Python/Pandas (\texttt{scripts/verify\_noir.py}). Et delstrengsøk etter \texttt{noir} gir 7 filmer med minst 50 stemmer. De to ekstra treffene er \emph{The Rules of the Game}, der teksten nevner Jean Renoir, og \emph{Phoenix}, der teksten bruker ordet \enquote{Noirish}. Med ordgrenser gir regex-kontrollen nøyaktig de samme 5 filmene som tekstindeksen. \emph{Sin City}, \emph{L.A. Confidential}, \emph{Blade Runner}, \emph{Chinatown}, \emph{Drive} og \emph{Pulp Fiction} har ikke delstrengen \texttt{noir} i de registrerte tekstfeltene. Resultatet beskriver derfor treff i teksten, ikke alle filmer som filmfaglig kan regnes som noir. Regex og tekstindeks har ulik tokenisering og stemming; vi forventer ikke identisk antall treff før stemmekravet brukes (MongoDB, u.å.-b).
+
+\skjermbilde{kode_07.jpg}{Kodeutdrag for oppgave 7; hele funksjonen ligger i \texttt{queries.py}.}{fig:q7a}
+\skjermbilde{resultat_07.jpg}{Resultat fra oppgave 7.}{fig:q7b}
+
+\FloatBarrier
+\subsubsection{Oppgave 8: Regissør--skuespiller-samarbeid}
+\paragraph{Metode og resultat}
+Vi filtrerer på \texttt{vote\_count >= 100}, henter ut regissørene (\texttt{crew.job = Director}) og bruker \texttt{\$unwind} på regissør og cast. Parene identifiseres med person-ID-ene og ikke navn. Vi grupperer først på (regissør, skuespiller, film), slik at en dobbeltoppføring i cast eller crew ikke teller som to filmer. Deretter grupperer vi på paret og beregner antall filmer og gjennomsnitt av \texttt{vote\_average} og \texttt{revenue}, beholder par med minst 3 filmer og tar topp 20. Par der regissør og skuespiller er samme person i filmen er utelatt. \texttt{revenue = 0} behandles som ukjent og er ikke med i gjennomsnittet. Hvis en film mangler revenue, er snittet regnet over de øvrige. Susumu Fujita har ingen kjent revenue og vises derfor uten verdi.
+
+Topplisten domineres av Akira Kurosawa, som har 15 av 20 par, blant annet med Minoru Chiaki (6 filmer, snitt 8,03) og Isao Kimura (4 filmer, 8,05). De øvrige parene er Coppola--Duvall (4 filmer, 8,08), Coppola--Cazale, Tarantino--Keitel, Chaplin--Hank Mann og Miyazaki--Tsunehiko Kamijô. Alle ligger mellom 8,03 og 8,13. Mange par deler akkurat de samme filmene (for eksempel \emph{Seven Samurai}), og det forklarer de identiske snittene.
+\skjermbilde{kode_08.jpg}{Kodeutdrag for oppgave 8; hele funksjonen ligger i \texttt{queries.py}.}{fig:q8a}
+\skjermbilde{resultat_08.jpg}{Resultat fra oppgave 8: plass 1--10 av topp 20.}{fig:q8b}
+\skjermbilde{resultat_08_del2.jpg}{Resultat fra oppgave 8: plass 11--20 av topp 20.}{fig:q8c}
+
+\FloatBarrier
+\subsubsection{Oppgave 9: Ikke-engelske filmer med amerikansk tilknytning}
+\paragraph{Metode og resultat}
+Vi velger filmer der \texttt{original\_language} ikke er \texttt{en} og ikke \texttt{null}. En vanlig \enquote{ikke lik}-sjekk ville tatt med de 11 filmene uten språk. Amerikansk tilknytning er \texttt{production\_countries.iso\_3166\_1 = "US"}. Produksjonsselskapene har bare navn og ID, ikke land. Navnefilteret \texttt{\^{}United States} er derfor bare en heuristikk og identifiserer ikke amerikanske selskaper generelt, som Warner Bros. eller Paramount. Det gir ingen ekstra filmer her (452 filmer både med og uten navnefilteret). Resultatet gjelder dermed i praksis filmer med USA som registrert produksjonsland. Delen av spørsmålet om amerikanske produksjonsselskaper kan ikke besvares eksakt fra disse feltene uten en ekstern kobling fra selskaps-ID til land. Dette er en begrensning ved besvarelsen. Vi grupperer på språk, teller, og velger som eksempeltittel filmen med flest stemmer.
+
+Topp 10 er fr (112), es (72), it (56), de (51), ja (31), pt (15), xx (14), nl (12), ru (11) og zh (11). Koden \texttt{xx} er ikke et språk. Den brukes i datasettet for filmer uten språk, og eksempelet er \emph{Quest for Fire}. Vi har beholdt den slik den står i dataene.
+\skjermbilde{kode_09.jpg}{Kodeutdrag for oppgave 9; hele funksjonen ligger i \texttt{queries.py}.}{fig:q9a}
+\skjermbilde{resultat_09.jpg}{Resultat fra oppgave 9.}{fig:q9b}
+
+\FloatBarrier
+\subsubsection{Oppgave 10: Brukernes sjangerbredde og vurderingsvarians}
+\paragraph{Metode og resultat}
+Spørringen går over hele \texttt{ratings}-samlingen. Vi grupperer på \texttt{userId} og beregner antall ratings, \texttt{\$stdDevPop} (kvadrert gir populasjonsvariansen) og settet av ratede \texttt{tmdbId}. Brukere med under 20 ratings fjernes. \texttt{tmdbId} ble lagt på hver rating ved innsetting (via \texttt{links}). Settet slås opp mot \texttt{movies} med \texttt{\$lookup} på \texttt{\_id}, og antall ulike sjangernavn telles med \texttt{\$setUnion}. Ratings uten \texttt{tmdbId} (42\,707) eller med \texttt{tmdbId} som ikke finnes i \texttt{movies} teller med i antall og varians, men ikke i sjangertellingen. To topplister lages med \texttt{\$facet}. Spørringen tok 163,4 sekunder (ca.\ 2,7 minutter) i kontrollkjøringen.
+
+Datasettet har 20 sjangre, og mange brukere har sett alle. Listen over sjangerbrede brukere er derfor en delt førsteplass, og vi har brukt antall ratings som tie-break (synkende, deretter \texttt{userId}). Bruker 45811 har flest ratings (18\,276) og alle 20 sjangre. Varians-listen toppes av brukere som bare gir 0,5 og 5,0 (varians 5,0625, som er teoretisk maksimum). Flere av dem har akkurat 20 ratings, så de ligger rett over terskelen.
+\kodebilde{kode_10.jpg}{Hele funksjonen for oppgave 10 fra \texttt{queries.py}.}{fig:q10a}
+\skjermbilde{resultat_10.jpg}{Oppgave 10: alle 10 brukere med størst sjangerbredde.}{fig:q10b}
+\skjermbilde{resultat_10_varians.jpg}{Oppgave 10: alle 10 brukere med høyest populasjonsvarians.}{fig:q10c}
+
+\section{Diskusjon}
+
+\subsection{EDA og manglende verdier}
+Omtrent 80\,\% av budsjettene og 84\,\% av inntektene er 0, som vi behandler som ukjent. Vi imputerte ikke, så spørringer på inntekt bygger på et lite utvalg av filmene. I oppgave 1 utelates \texttt{revenue = 0} fra medianen; i oppgave 4 øker slike verdier ikke summen. Regissører og samlinger uten noen positiv registrert inntekt utelates. Rangeringene gjelder derfor registrerte inntekter, og manglende inntekter kan påvirke hvilke filmer som ligger til grunn. Oppgave 8 er et annet eksempel: Susumu Fujita har ingen kjent inntekt og vises uten verdi. Tilsvarende bygger oppgave 7 bare på filmer med \texttt{overview} eller \texttt{tagline}, og oppgave 6 utelater ukjent kjønn (40\,\% av cast-oppføringene).
+
+Flere resultater hviler på få filmer eller få stemmer. Tiårene 1870, 1890, 1900 og 2020 i oppgave 6 har 1--12 filmer, og i oppgave 7 er det bare 5 av 60 treff som har nok stemmer. I oppgave 1 bygger flere medianer på bare 2--3 filmer med kjent inntekt, og i oppgave 5 har gruppene fra tidlige tiår få filmer (for eksempel bygger 220 minutter for Science Fiction på 1940-tallet på én film). Oppgave 3 har en delt førsteplass, siden mange skuespillere har alle 20 sjangre, så rekkefølgen på topp 10 avgjøres av tie-break og ikke av ulik sjangerbredde. Brukerne med høyest varians i oppgave 10 har ofte akkurat 20 ratings. Siden fordelingene er så skjeve (figur~\ref{fig:eda-log}), bruker vi median der oppgavene ber om det, og vi tolker \texttt{vote\_average} med forsiktighet.
+
+\subsection{Datamodell}
+Det viktigste valget var å bygge cast, crew og keywords inn i filmdokumentet og å legge \texttt{tmdbId} direkte på hver rating. Vi vurderte tre alternativer og valgte dem bort:
+\begin{itemize}
+  \item \textbf{Cast, crew og keywords som egne kolleksjoner.} Forholdet er en-til-en, dataene leses alltid sammen med filmen, og fem av ni spørringer trenger film og cast eller crew samtidig. Det hadde krevd \texttt{\$lookup} i nesten hver spørring.
+  \item \textbf{Ratings innebygd i filmdokumentet.} Den mest ratede filmen har 91\,921 ratings. Det ville strengt tatt rommet under 16\,MB, men listen vokser uten grense, den leses med filmen også når den ikke trengs, og oppgave 10 grupperer per bruker og måtte uansett pakket ut alle 26 millioner ratings.
+  \item \textbf{\texttt{links} som egen kolleksjon.} Den trengs bare til å oversette MovieLens-ID til TMDB-ID, og det gjør vi én gang ved innsetting. Da slipper oppgave 10 en ekstra join over 26 millioner rader.
+\end{itemize}
+Prisen er at filmdokumentene blir store (den største credits-raden er rundt 79\,kB), at spørringer som bare trenger filmfeltene likevel leser mye data, og at \texttt{tmdbId} er lagret på hver rating i tillegg til \texttt{movieId}. Det siste er redundans, men siden dataene bare lastes inn én gang og ikke oppdateres, vurderer vi risikoen for inkonsistens som lav.
+
+\subsection{Datatyper}
+Tall som var lest inn som tekst (\texttt{id}, \texttt{budget} og \texttt{popularity}) er gjort om til heltall og flyttall, og \texttt{release\_date} og ratingenes \texttt{timestamp} er lagret som \texttt{datetime} (UTC), slik at sortering og sammenligning fungerer. Ugyldige verdier gir feilmelding i stedet for å bli \texttt{NaN} i det stille. Ukjente verdier lagres som \texttt{null}, mens 0 i \texttt{budget}, \texttt{revenue} og \texttt{runtime} er beholdt som den står, og spørringene må selv hoppe over dem.
+
+\subsection{Ytelse og begrensninger}
+Oppgave 1, 3, 4, 5 og 6--9 tok mellom 0,1 og 10 sekunder. Oppgave 2 tok ca.\ 134 sekunder, fordi den lager alle skuespillerpar per film (castlistene kan ha over 300 personer) og trenger \texttt{allowDiskUse}. Ekstra \texttt{\$lookup} slapp vi her fordi \texttt{cast} er bygget inn i filmdokumentet, men prisen er at hele castlisten leses for hver film. Oppgave 10 tok 163,4 sekunder (ca.\ 2,7 minutter) i kontrollkjøringen. Den grupperer alle 26 millioner ratings og gjør deretter \texttt{\$lookup} mot filmsettene til hver bruker. Store \texttt{\$addToSet}-sett, gruppering og filmoppslag kan alle bidra til kjøretiden. \texttt{allowDiskUse=True} er allerede aktivert. Uten en måling av de enkelte stegene kan vi ikke fastslå hvor mye tid hvert steg bruker. En indeks på \texttt{userId} fjerner ikke behovet for å lese alle ratings.
+
+Et mulig forbedringstiltak er å hente film-ID og sjangre én gang til en Python-dictionary og bruke denne ved sjangeroppslag. Et annet er å bygge sjanger-ID-er inn i hver rating, mot kostnaden av mer lagring og gjentatte opplysninger. Alternativene er ikke ytelsesmålt her, og vi oppgir derfor ingen forventet kjøretid eller garantert hastighetsgevinst.
+
+29 TMDB-filmer er slått sammen fordi flere MovieLens-filmer peker på samme TMDB-id. Det gjelder 0,036\,\% av ratingene og vurderes som ubetydelig. Koden \texttt{xx} i oppgave 9 er beholdt slik den står i dataene.
+
+% ==========================================================================
+\section{Hva lærte vi}
+Arbeidet viste hvor mye en grundig EDA styrer resten av oppgaven. Funnene om skjulte nuller, duplikater og de to ID-systemene avgjorde både rensingen og datamodellen. Hadde vi satt inn dataene uten å undersøke dem først, ville medianene i oppgavene med inntekt blitt feil uten at vi la merke til det. Vi lærte også at manglende data ikke alltid skal fylles inn: når rundt 80\,\% av budsjettene mangler, er det ærligere å utelate dem og si fra.
+
+I MongoDB er modelleringen et valg mellom å bygge inn og å referere, og det rette valget følger av hvordan dataene leses. Cast og crew hører til filmen og bygges inn, mens ratings er for mange og for ujevnt fordelt til det. Vi lærte også at en rask spørring ofte er avgjort allerede ved innsettingen, for eksempel ved å legge \texttt{tmdbId} på hver rating. Til slutt ga oppgave 10 en påminnelse om at en aggregering over 26 millioner dokumenter tar tid selv med indekser, og at det lønner seg å teste på små utsnitt først.
+
+% ==========================================================================
+\section{Tilbakemelding}
+Det beste med oppgaven er at den bruker et ekte datasett, noe som gjør den mer motiverende enn vanlige øvelser. Man får også kjenne på hele løpet, fra å ta rådata, via å bestemme hvordan de skal ligge i kolleksjoner og få dem inn i databasen, til å hente ut svar med spørringer. Det føles nesten som et lite prosjekt fra arbeidslivet. Samtidig er det et par ting som kunne vært tydeligere. I Task 1 er det vanskelig å vite hvor mye som skal gjøres med dataene før de settes inn, og samtaler med andre studenter tyder på at flere har opplevd det samme. Det står også at det skal leveres en «kort rapport», men ikke hva som menes med kort. Et omtrentlig sideantall hadde gjort det lettere å treffe riktig nivå uten å skrive for mye.
+
+% ==========================================================================
+\section{Bruk av KI}
+% Eksisterende tekst er beholdt. Tilpass til faktisk KI-bruk før innlevering.
+KI har blitt aktivt brukt som hjelpemiddel i denne oppgaven. Verktøyene som
+har blitt brukt er Anthropics språkmodell Claude (Anthropic, 2026a),
+terminalversjonen Claude Code (Anthropic, 2026b) og OpenAIs språkmodeller
+gjennom ChatGPT (OpenAI, 2026). I tillegg har KI-genererte svar som dukker
+opp ved vanlige nettsøk blitt benyttet for å svare på enkle
+kunnskapsspørsmål. Egendefinerte regler for de ulike språkmodellene er
+opprettet slik at bruken holder seg innenfor NTNUs retningslinjer for
+KI-bruk. Mer nøyaktig har KI i denne oppgaven blitt brukt til følgende:
+
+\begin{itemize}
+  \item TODO-liste med oversikt over hva som må gjøres for å svare på oppgaven.
+  \item Maler med struktur og hjelpespørsmål som guiding og veiledning.
+  \item Feilsøking av egenskrevet kode og forklaring av kodekonsepter.
+  \item Stikkorddokument for dokumentering av tankeprosess, valg og resultater.
+  \item Språkvask og forslag til struktur og hva rapporten bør inneholde.
+  \item Hjelp med riktig kildeformatering.
+  \item Hjelp med forbedring av figurer og tabeller.
+  \item Sammenslåing av de to EDA-notebookene til én, og kode til figurene i EDA-delen (manglende verdier, fordelinger og ratings per bruker og film).
+  \item Gjennomgang av rapportteksten mot koden for å fange avvik, samt forside og kildehenvisning.
+  \item Formatering av dokumentoppsett i Overleaf med LaTeX.
+  \item Vurdering og tilbakemelding på rapport og kode.
+  \item Kontroll av tekstsøket mot rådata, samkjøring av utskrift med \texttt{pprint} og oppdatering av rapportfigurer fra spørringsresultatene.
+  \item Forslag til og endringer i kode (rensing, spørringer, figurer) som
+        gruppen har gått gjennom og tilpasset.
+\end{itemize}
+
+Alt innhold i rapporten og kodebasen er gjennomgått av gruppen og står i
+tråd med NTNUs retningslinjer: \enquote{Artificial intelligence in student
+papers} (NTNU, u.å.).
+
+% ==========================================================================
+\section*{Referanser}
+\addcontentsline{toc}{section}{Referanser}
+\begin{itemize}[label={}, leftmargin=1.5em, itemindent=-1.5em, itemsep=3pt]
+  \item Anthropic. (2026a). \textit{Claude} [Stor språkmodell]. \url{https://claude.ai}
+  \item Anthropic. (2026b). \textit{Claude Code} [Programvare]. \url{https://claude.com/product/claude-code}
+  \item Banik, R. (u.å.). \textit{The Movies Dataset} [Datasett]. Kaggle. \url{https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset}
+  \item MongoDB. (u.å.-a). \textit{\$median}. \url{https://www.mongodb.com/docs/manual/reference/operator/aggregation/median/}
+  \item MongoDB. (u.å.-b). \textit{Text Index Properties}. \url{https://www.mongodb.com/docs/v7.0/core/indexes/index-types/index-text/text-index-properties/}
+  \item NTNU. (u.å.). \textit{Artificial intelligence in student papers}. Kunnskapsbasen. \url{https://i.ntnu.no/wiki/-/wiki/English/Artificial+intelligence+in+student+papers}
+  \item OpenAI. (2026). \textit{ChatGPT} [Stor språkmodell]. \url{https://chatgpt.com}
+\end{itemize}
+
+% Lever rapport som PDF og kode innen 30. oktober kl. 14:00.
+\end{document}
