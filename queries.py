@@ -288,9 +288,15 @@ def task_9(db):
         {"production_countries.iso_3166_1": "US"},
         {"production_companies.name": {"$regex": "^United States"}},
     ]}
+    # "xx" er datasettets kode for filmer uten språk, ikke et språk.
+    # Noen filmer har feil original_language (f.eks. A Civil Action = "pt", men bare
+    # engelsk tale). Eksempeltittelen velges derfor blant filmer der språket også
+    # står i spoken_languages (mest stemte først), og ellers blant resten.
     pipeline = [
-        {"$match": {"original_language": {"$nin": [None, "en"]}, **us}},
-        {"$sort": {"vote_count": -1, "title": 1}},  # eksempeltittel = mest stemte film
+        {"$match": {"original_language": {"$nin": [None, "en", "xx"]}, **us}},
+        {"$addFields": {"spoken_match": {"$in": [
+            "$original_language", {"$ifNull": ["$spoken_languages.iso_639_1", []]}]}}},
+        {"$sort": {"spoken_match": -1, "vote_count": -1, "title": 1}},
         {"$group": {"_id": "$original_language", "count": {"$sum": 1}, "example": {"$first": "$title"}}},
         {"$sort": {"count": -1, "_id": 1}},
         {"$limit": 10},
